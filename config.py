@@ -1,0 +1,1 @@
+# Configuracion de BD y SECRET_KEY desde .env
