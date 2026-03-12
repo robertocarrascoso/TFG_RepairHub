@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — RepairHub{% endblock %}
+
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="cards-grid">
+    <div class="card">
+        <span class="card-number">{{ pendientes }}</span>
+        <span class="card-label">Pendientes</span>
+    </div>
+    <div class="card">
+        <span class="card-number">{{ este_mes }}</span>
+        <span class="card-label">Este mes</span>
+    </div>
+    <div class="card">
+        <span class="card-number">{{ "%.2f"|format(ingresos_mes) }} €</span>
+        <span class="card-label">Ingresos mes</span>
+    </div>
+    <div class="card">
+        <span class="card-number">{{ tiempo_medio }} días</span>
+        <span class="card-label">Tiempo medio</span>
+    </div>
+</div>
+
+<h2>Últimas reparaciones</h2>
+<div class="table-responsive">
+    <table>
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Cliente</th>
+                <th>Dispositivo</th>
+                <th>Avería</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rep in ultimas %}
+            <tr>
+                <td><a href="/reparacion/{{ rep.codigo }}">{{ rep.codigo }}</a></td>
+                <td>{{ rep.cliente_nombre }}</td>
+                <td>{{ rep.tipo_dispositivo }} {{ rep.marca }}</td>
+                <td>{{ rep.averia[:40] }}{% if rep.averia|length > 40 %}...{% endif %}</td>
+                <td><span class="badge badge-{{ rep.estado|lower|replace(' ', '-') }}">{{ rep.estado }}</span></td>
+                <td>{{ rep.created_at.strftime('%d/%m/%Y') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
