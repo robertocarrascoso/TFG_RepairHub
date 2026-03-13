@@ -103,5 +103,22 @@ def dashboard():
     )
 
 
+@app.route('/nueva-entrada')
+def nueva_entrada():
+    return render_template('nueva_entrada.html')
+
+@app.route('/reparaciones')
+def reparaciones():
+    return render_template('reparaciones.html')
+
+@app.route('/clientes')
+def clientes():
+    return render_template('clientes.html')
+
+@app.route('/buscar')
+def buscar():
+    return render_template('buscar.html')
+
+
 if __name__ == '__main__':
     app.run(debug=True)
