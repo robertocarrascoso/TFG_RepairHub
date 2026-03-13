@@ -33,3 +33,45 @@ if (hamburger) {
         });
     });
 }
+
+// Validación formulario nueva entrada
+
+const formNuevaEntrada = document.querySelector('.form-nueva-entrada');
+if (formNuevaEntrada) {
+    formNuevaEntrada.addEventListener('submit', (e) => {
+        const telefono = document.getElementById('telefono').value.trim();
+        const email = document.getElementById('email').value.trim();
+
+        if (!telefono && !email) {
+            e.preventDefault();
+            alert('Indica al menos un dato de contacto (teléfono o email).');
+        }
+    });
+}
+
+// Autocompletado de clientes
+
+const telefonoInput = document.getElementById('telefono');
+const nombreInput = document.getElementById('nombre');
+const emailInput = document.getElementById('email');
+
+if (telefonoInput) {
+    let timeout;
+    telefonoInput.addEventListener('input', () => {
+        clearTimeout(timeout);
+        const q = telefonoInput.value.trim();
+        if (q.length < 3) return;
+
+        timeout = setTimeout(() => {
+            fetch(`/api/buscar-cliente?q=${encodeURIComponent(q)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        const c = data[0];
+                        if (nombreInput) nombreInput.value = c.nombre;
+                        if (emailInput && c.email) emailInput.value = c.email;
+                    }
+                });
+        }, 300);
+    });
+}

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from config import DB_CONFIG, SECRET_KEY
 from datetime import datetime
 
@@ -219,6 +219,29 @@ def clientes():
 @app.route('/buscar')
 def buscar():
     return render_template('buscar.html')
+
+
+@app.route('/api/buscar-cliente')
+def api_buscar_cliente():
+    q = request.args.get('q', '').strip()
+    if not q or len(q) < 2:
+        return jsonify([])
+
+    if PREVIEW_MODE:
+        resultados = [c for c in mock_clientes if q.lower() in c['nombre'].lower() or q in c.get('telefono', '')]
+        return jsonify(resultados[:5])
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT * FROM clientes
+        WHERE nombre LIKE %s OR telefono LIKE %s OR email LIKE %s
+        LIMIT 5
+    """, (f'%{q}%', f'%{q}%', f'%{q}%'))
+    resultados = cursor.fetchall()
+    cursor.close()
+    db.close()
+    return jsonify(resultados)
 
 
 if __name__ == '__main__':
