@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, redirect, url_for, flash
 from config import DB_CONFIG, SECRET_KEY
 from datetime import datetime
 
@@ -103,8 +103,109 @@ def dashboard():
     )
 
 
-@app.route('/nueva-entrada')
+@app.route('/nueva-entrada', methods=['GET', 'POST'])
 def nueva_entrada():
+    if request.method == 'POST':
+        # Recoger datos del formulario
+        nombre = request.form.get('nombre', '').strip()
+        telefono = request.form.get('telefono', '').strip()
+        email = request.form.get('email', '').strip()
+        tipo = request.form.get('tipo_dispositivo', '').strip()
+        marca = request.form.get('marca', '').strip()
+        modelo = request.form.get('modelo', '').strip()
+        averia = request.form.get('averia', '').strip()
+        observaciones = request.form.get('observaciones', '').strip()
+
+        # Validación básica
+        if not nombre or not averia or not tipo:
+            flash('Nombre, avería y tipo de dispositivo son obligatorios.', 'error')
+            return redirect(url_for('nueva_entrada'))
+
+        if not telefono and not email:
+            flash('Indica al menos un dato de contacto (teléfono o email).', 'error')
+            return redirect(url_for('nueva_entrada'))
+
+        if PREVIEW_MODE:
+            # Buscar o crear cliente en datos mock
+            cliente = next((c for c in mock_clientes if c['telefono'] == telefono or c['email'] == email), None)
+            if not cliente:
+                nuevo_id = max(c['id'] for c in mock_clientes) + 1
+                cliente = {'id': nuevo_id, 'nombre': nombre, 'telefono': telefono, 'email': email, 'created_at': datetime.now()}
+                mock_clientes.append(cliente)
+
+            # Generar código
+            year = datetime.now().year
+            num = len(mock_reparaciones) + 1
+            codigo = f"REP-{year}-{num:05d}"
+
+            # Crear reparación
+            nueva_rep = {
+                'id': len(mock_reparaciones) + 1,
+                'codigo': codigo,
+                'cliente_id': cliente['id'],
+                'tipo_dispositivo': tipo,
+                'marca': marca,
+                'modelo': modelo,
+                'averia': averia,
+                'observaciones': observaciones,
+                'estado': 'Recibido',
+                'presupuesto': None,
+                'precio_final': None,
+                'presupuesto_aceptado': None,
+                'created_at': datetime.now(),
+                'updated_at': datetime.now()
+            }
+            mock_reparaciones.append(nueva_rep)
+
+            # Registrar en historial
+            mock_historial.append({
+                'id': len(mock_historial) + 1,
+                'reparacion_id': nueva_rep['id'],
+                'estado': 'Recibido',
+                'tecnico': 'Técnico',
+                'fecha': datetime.now()
+            })
+
+            flash(f'Reparación {codigo} creada correctamente.', 'success')
+            return redirect(url_for('ver_pdf', codigo=codigo))
+
+        # --- Con base de datos real ---
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        # Buscar cliente existente
+        cursor.execute("SELECT * FROM clientes WHERE telefono = %s OR email = %s", (telefono, email))
+        cliente = cursor.fetchone()
+
+        if not cliente:
+            cursor.execute("INSERT INTO clientes (nombre, telefono, email) VALUES (%s, %s, %s)", (nombre, telefono, email))
+            db.commit()
+            cliente_id = cursor.lastrowid
+        else:
+            cliente_id = cliente['id']
+
+        # Generar código único
+        year = datetime.now().year
+        cursor.execute("SELECT COUNT(*) as total FROM reparaciones WHERE YEAR(created_at) = %s", (year,))
+        num = cursor.fetchone()['total'] + 1
+        codigo = f"REP-{year}-{num:05d}"
+
+        # Insertar reparación
+        cursor.execute("""
+            INSERT INTO reparaciones (codigo, cliente_id, tipo_dispositivo, marca, modelo, averia, observaciones)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (codigo, cliente_id, tipo, marca, modelo, averia, observaciones))
+        reparacion_id = cursor.lastrowid
+
+        # Insertar primer estado
+        cursor.execute("INSERT INTO historial_estados (reparacion_id, estado, tecnico) VALUES (%s, 'Recibido', 'Técnico')", (reparacion_id,))
+        db.commit()
+        cursor.close()
+        db.close()
+
+        flash(f'Reparación {codigo} creada correctamente.', 'success')
+        return redirect(url_for('ver_pdf', codigo=codigo))
+
     return render_template('nueva_entrada.html')
 
 @app.route('/reparaciones')
