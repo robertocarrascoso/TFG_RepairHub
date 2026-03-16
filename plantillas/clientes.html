@@ -1,6 +1,31 @@
 {% extends "base.html" %}
 {% block title %}Clientes — RepairHub{% endblock %}
+
 {% block content %}
 <h1>Clientes</h1>
-<p>Lista de clientes (próximamente)</p>
+
+<div class="table-responsive">
+    <table>
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Teléfono</th>
+                <th>Email</th>
+                <th>Reparaciones</th>
+                <th>Alta</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in clientes %}
+            <tr>
+                <td><a href="/cliente/{{ c.id }}">{{ c.nombre }}</a></td>
+                <td>{{ c.telefono or '—' }}</td>
+                <td>{{ c.email or '—' }}</td>
+                <td>{{ c.n_reparaciones }}</td>
+                <td>{{ c.created_at.strftime('%d/%m/%Y') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}
