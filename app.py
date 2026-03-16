@@ -494,6 +494,53 @@ def buscar():
     return render_template('buscar.html')
 
 
+@app.route('/api/buscar')
+def api_buscar():
+    q = request.args.get('q', '').strip()
+    if not q or len(q) < 2:
+        return jsonify({'reparaciones': [], 'clientes': []})
+
+    if PREVIEW_MODE:
+        reps = [r for r in mock_reparaciones
+                if q.lower() in r['codigo'].lower()
+                or q.lower() in r['averia'].lower()]
+
+        for rep in reps:
+            cliente = next((c for c in mock_clientes if c['id'] == rep['cliente_id']), None)
+            rep['cliente_nombre'] = cliente['nombre'] if cliente else 'Desconocido'
+
+        clientes = [c for c in mock_clientes
+                    if q.lower() in c['nombre'].lower()
+                    or q in c.get('telefono', '')]
+
+        return jsonify({
+            'reparaciones': reps[:10],
+            'clientes': clientes[:10]
+        })
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT r.*, c.nombre as cliente_nombre
+        FROM reparaciones r JOIN clientes c ON r.cliente_id = c.id
+        WHERE r.codigo LIKE %s OR c.nombre LIKE %s OR c.telefono LIKE %s
+        ORDER BY r.created_at DESC LIMIT 10
+    """, (f'%{q}%', f'%{q}%', f'%{q}%'))
+    reps = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT * FROM clientes
+        WHERE nombre LIKE %s OR telefono LIKE %s
+        LIMIT 10
+    """, (f'%{q}%', f'%{q}%'))
+    clientes = cursor.fetchall()
+
+    cursor.close()
+    db.close()
+    return jsonify({'reparaciones': reps, 'clientes': clientes})
+
+
 @app.route('/api/buscar-cliente')
 def api_buscar_cliente():
     q = request.args.get('q', '').strip()
