@@ -371,6 +371,63 @@ def cambiar_estado(codigo):
     return redirect(url_for('detalle_reparacion', codigo=codigo))
 
 
+@app.route('/reparacion/<codigo>/presupuesto', methods=['POST'])
+def enviar_presupuesto(codigo):
+    presupuesto = request.form.get('presupuesto', type=float)
+
+    if PREVIEW_MODE:
+        rep = next((r for r in mock_reparaciones if r['codigo'] == codigo), None)
+        if rep and rep['estado'] == 'Diagnosticado':
+            rep['presupuesto'] = presupuesto
+            rep['estado'] = 'Presupuesto enviado'
+            rep['updated_at'] = datetime.now()
+            mock_historial.append({
+                'id': len(mock_historial) + 1,
+                'reparacion_id': rep['id'],
+                'estado': 'Presupuesto enviado',
+                'tecnico': 'Técnico',
+                'fecha': datetime.now()
+            })
+            flash(f'Presupuesto de {presupuesto}€ enviado.', 'success')
+        return redirect(url_for('detalle_reparacion', codigo=codigo))
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM reparaciones WHERE codigo = %s", (codigo,))
+    rep = cursor.fetchone()
+
+    if rep and rep['estado'] == 'Diagnosticado':
+        cursor.execute("UPDATE reparaciones SET presupuesto = %s, estado = 'Presupuesto enviado' WHERE codigo = %s", (presupuesto, codigo))
+        cursor.execute("INSERT INTO historial_estados (reparacion_id, estado, tecnico) VALUES (%s, 'Presupuesto enviado', 'Técnico')", (rep['id'],))
+        db.commit()
+        flash(f'Presupuesto de {presupuesto}€ enviado.', 'success')
+
+    cursor.close()
+    db.close()
+    return redirect(url_for('detalle_reparacion', codigo=codigo))
+
+
+@app.route('/reparacion/<codigo>/precio-final', methods=['POST'])
+def precio_final(codigo):
+    precio = request.form.get('precio_final', type=float)
+
+    if PREVIEW_MODE:
+        rep = next((r for r in mock_reparaciones if r['codigo'] == codigo), None)
+        if rep:
+            rep['precio_final'] = precio
+            flash(f'Precio final: {precio}€.', 'success')
+        return redirect(url_for('detalle_reparacion', codigo=codigo))
+
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("UPDATE reparaciones SET precio_final = %s WHERE codigo = %s", (precio, codigo))
+    db.commit()
+    cursor.close()
+    db.close()
+    flash(f'Precio final: {precio}€.', 'success')
+    return redirect(url_for('detalle_reparacion', codigo=codigo))
+
+
 @app.route('/clientes')
 def clientes():
     return render_template('clientes.html')
