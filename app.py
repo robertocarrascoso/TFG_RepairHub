@@ -1,6 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
 from config import DB_CONFIG, SECRET_KEY
+from utilidades.pdf_generator import generar_pdf
 from datetime import datetime
+import os
 
 app = Flask(__name__,
             template_folder='plantillas',
@@ -167,7 +169,7 @@ def nueva_entrada():
             })
 
             flash(f'Reparación {codigo} creada correctamente.', 'success')
-            return redirect(url_for('ver_pdf', codigo=codigo))
+            return redirect(url_for('nueva_entrada', pdf=codigo))
 
         # --- Con base de datos real ---
         db = get_db()
@@ -204,7 +206,7 @@ def nueva_entrada():
         db.close()
 
         flash(f'Reparación {codigo} creada correctamente.', 'success')
-        return redirect(url_for('ver_pdf', codigo=codigo))
+        return redirect(url_for('nueva_entrada', pdf=codigo))
 
     return render_template('nueva_entrada.html')
 
@@ -242,6 +244,67 @@ def api_buscar_cliente():
     cursor.close()
     db.close()
     return jsonify(resultados)
+
+
+@app.route('/pdf/<codigo>')
+def ver_pdf(codigo):
+    if PREVIEW_MODE:
+        rep = next((r for r in mock_reparaciones if r['codigo'] == codigo), None)
+        if not rep:
+            flash('Reparación no encontrada.', 'error')
+            return redirect(url_for('dashboard'))
+
+        cliente = next((c for c in mock_clientes if c['id'] == rep['cliente_id']), None)
+
+        datos = {
+            'codigo': rep['codigo'],
+            'nombre_cliente': cliente['nombre'] if cliente else 'Desconocido',
+            'telefono': cliente.get('telefono', '') if cliente else '',
+            'email': cliente.get('email', '') if cliente else '',
+            'tipo_dispositivo': rep['tipo_dispositivo'],
+            'marca': rep.get('marca', ''),
+            'modelo': rep.get('modelo', ''),
+            'averia': rep['averia'],
+            'observaciones': rep.get('observaciones', ''),
+            'fecha': rep['created_at']
+        }
+    else:
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT r.*, c.nombre as nombre_cliente, c.telefono, c.email
+            FROM reparaciones r
+            JOIN clientes c ON r.cliente_id = c.id
+            WHERE r.codigo = %s
+        """, (codigo,))
+        row = cursor.fetchone()
+        cursor.close()
+        db.close()
+
+        if not row:
+            flash('Reparación no encontrada.', 'error')
+            return redirect(url_for('dashboard'))
+
+        datos = {
+            'codigo': row['codigo'],
+            'nombre_cliente': row['nombre_cliente'],
+            'telefono': row.get('telefono', ''),
+            'email': row.get('email', ''),
+            'tipo_dispositivo': row['tipo_dispositivo'],
+            'marca': row.get('marca', ''),
+            'modelo': row.get('modelo', ''),
+            'averia': row['averia'],
+            'observaciones': row.get('observaciones', ''),
+            'fecha': row['created_at']
+        }
+
+    # Generar PDF
+    pdf_dir = os.path.join(app.root_path, 'pdfs')
+    os.makedirs(pdf_dir, exist_ok=True)
+    pdf_path = os.path.join(pdf_dir, f'{codigo}.pdf')
+
+    generar_pdf(datos, pdf_path)
+    return send_file(pdf_path, as_attachment=False, download_name=f'{codigo}.pdf')
 
 
 if __name__ == '__main__':

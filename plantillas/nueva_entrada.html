@@ -60,3 +60,11 @@
     <button type="submit" class="btn btn-primary">Dar entrada y generar resguardo</button>
 </form>
 {% endblock %}
+
+{% block scripts %}
+{% if request.args.get('pdf') %}
+<script>
+    window.open("{{ url_for('ver_pdf', codigo=request.args.get('pdf')) }}", "_blank");
+</script>
+{% endif %}
+{% endblock %}
