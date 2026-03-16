@@ -451,6 +451,44 @@ def clientes():
     db.close()
     return render_template('clientes.html', clientes=lista)
 
+@app.route('/cliente/<int:id>')
+def detalle_cliente(id):
+    if PREVIEW_MODE:
+        cliente = next((c for c in mock_clientes if c['id'] == id), None)
+        if not cliente:
+            flash('Cliente no encontrado.', 'error')
+            return redirect(url_for('clientes'))
+
+        reps = sorted(
+            [r for r in mock_reparaciones if r['cliente_id'] == id],
+            key=lambda r: r['created_at'], reverse=True
+        )
+        gasto = sum(r['precio_final'] or 0 for r in reps)
+        return render_template('cliente.html', cliente=cliente, reparaciones=reps, gasto_total=gasto)
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM clientes WHERE id = %s", (id,))
+    cliente = cursor.fetchone()
+
+    if not cliente:
+        cursor.close()
+        db.close()
+        flash('Cliente no encontrado.', 'error')
+        return redirect(url_for('clientes'))
+
+    cursor.execute("SELECT * FROM reparaciones WHERE cliente_id = %s ORDER BY created_at DESC", (id,))
+    reps = cursor.fetchall()
+
+    cursor.execute("SELECT COALESCE(SUM(precio_final), 0) as total FROM reparaciones WHERE cliente_id = %s AND estado = 'Entregado'", (id,))
+    gasto = cursor.fetchone()['total']
+
+    cursor.close()
+    db.close()
+    return render_template('cliente.html', cliente=cliente, reparaciones=reps, gasto_total=gasto)
+
+
 @app.route('/buscar')
 def buscar():
     return render_template('buscar.html')
