@@ -212,7 +212,108 @@ def nueva_entrada():
 
 @app.route('/reparaciones')
 def reparaciones():
-    return render_template('reparaciones.html')
+    filtro = request.args.get('estado', 'todos')
+
+    if PREVIEW_MODE:
+        if filtro == 'todos':
+            lista = mock_reparaciones
+        else:
+            lista = [r for r in mock_reparaciones if r['estado'] == filtro]
+
+        # Añadir nombre del cliente
+        for rep in lista:
+            cliente = next((c for c in mock_clientes if c['id'] == rep['cliente_id']), None)
+            rep['cliente_nombre'] = cliente['nombre'] if cliente else 'Desconocido'
+
+        lista = sorted(lista, key=lambda r: r['created_at'], reverse=True)
+        return render_template('reparaciones.html', reparaciones=lista, filtro_actual=filtro)
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    if filtro == 'todos':
+        cursor.execute("""
+            SELECT r.*, c.nombre as cliente_nombre
+            FROM reparaciones r JOIN clientes c ON r.cliente_id = c.id
+            ORDER BY r.created_at DESC
+        """)
+    else:
+        cursor.execute("""
+            SELECT r.*, c.nombre as cliente_nombre
+            FROM reparaciones r JOIN clientes c ON r.cliente_id = c.id
+            WHERE r.estado = %s
+            ORDER BY r.created_at DESC
+        """, (filtro,))
+
+    lista = cursor.fetchall()
+    cursor.close()
+    db.close()
+    return render_template('reparaciones.html', reparaciones=lista, filtro_actual=filtro)
+
+# Flujo de estados válidos
+FLUJO_ESTADOS = {
+    'Recibido': ['Diagnosticado'],
+    'Diagnosticado': ['Presupuesto enviado'],
+    'Presupuesto enviado': ['Presupuesto aceptado', 'Entregado'],  # Entregado = rechazado
+    'Presupuesto aceptado': ['Reparando'],
+    'Reparando': ['Esperando pieza', 'Listo'],
+    'Esperando pieza': ['Reparando'],
+    'Listo': ['Entregado'],
+    'Entregado': []
+}
+
+@app.route('/reparacion/<codigo>')
+def detalle_reparacion(codigo):
+    if PREVIEW_MODE:
+        rep = next((r for r in mock_reparaciones if r['codigo'] == codigo), None)
+        if not rep:
+            flash('Reparación no encontrada.', 'error')
+            return redirect(url_for('reparaciones'))
+
+        cliente = next((c for c in mock_clientes if c['id'] == rep['cliente_id']), None)
+        rep['cliente_nombre'] = cliente['nombre'] if cliente else 'Desconocido'
+        rep['cliente_telefono'] = cliente.get('telefono', '') if cliente else ''
+        rep['cliente_email'] = cliente.get('email', '') if cliente else ''
+
+        historial = sorted(
+            [h for h in mock_historial if h['reparacion_id'] == rep['id']],
+            key=lambda h: h['fecha'], reverse=True
+        )
+
+        estados_posibles = FLUJO_ESTADOS.get(rep['estado'], [])
+
+        return render_template('reparacion.html',
+            rep=rep, cliente=cliente,
+            historial=historial,
+            estados_posibles=estados_posibles
+        )
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT r.*, c.nombre as cliente_nombre, c.telefono as cliente_telefono,
+               c.email as cliente_email, c.id as cid
+        FROM reparaciones r JOIN clientes c ON r.cliente_id = c.id
+        WHERE r.codigo = %s
+    """, (codigo,))
+    rep = cursor.fetchone()
+
+    if not rep:
+        cursor.close()
+        db.close()
+        flash('Reparación no encontrada.', 'error')
+        return redirect(url_for('reparaciones'))
+
+    cursor.execute("SELECT * FROM historial_estados WHERE reparacion_id = %s ORDER BY fecha DESC", (rep['id'],))
+    historial = cursor.fetchall()
+
+    cursor.close()
+    db.close()
+
+    estados_posibles = FLUJO_ESTADOS.get(rep['estado'], [])
+    return render_template('reparacion.html', rep=rep, historial=historial, estados_posibles=estados_posibles)
+
 
 @app.route('/clientes')
 def clientes():
