@@ -145,9 +145,17 @@ def nueva_entrada():
                 cliente = {'id': nuevo_id, 'nombre': nombre, 'telefono': telefono, 'email': email, 'created_at': datetime.now()}
                 mock_clientes.append(cliente)
 
-            # Generar código
+            # Generar código (buscar el máximo existente para no repetir)
             year = datetime.now().year
-            num = len(mock_reparaciones) + 1
+            nums_existentes = []
+            for r in mock_reparaciones:
+                partes = r['codigo'].split('-')
+                if len(partes) == 3 and partes[1] == str(year):
+                    try:
+                        nums_existentes.append(int(partes[2]))
+                    except ValueError:
+                        pass
+            num = max(nums_existentes, default=0) + 1
             codigo = f"REP-{year}-{num:05d}"
 
             # Crear reparación
@@ -631,8 +639,7 @@ def ver_pdf(codigo):
     os.makedirs(pdf_dir, exist_ok=True)
     pdf_path = os.path.join(pdf_dir, f'{codigo}.pdf')
 
-    if not os.path.exists(pdf_path):
-        generar_pdf(datos, pdf_path)
+    generar_pdf(datos, pdf_path)
 
     return send_file(pdf_path, as_attachment=False, download_name=f'{codigo}.pdf')
 

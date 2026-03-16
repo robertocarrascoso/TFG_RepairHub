@@ -385,3 +385,20 @@ textarea {
         padding: 1rem;
     }
 }
+
+/* Banner PDF generado */
+.pdf-banner {
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.pdf-banner a {
+    color: var(--color-text);
+    text-decoration: underline;
+    font-weight: 600;
+    margin-left: 0.5rem;
+}

@@ -4,6 +4,15 @@
 {% block content %}
 <h1>Nueva entrada</h1>
 
+{% if request.args.get('pdf') %}
+<div id="pdf-banner" class="pdf-banner">
+    Resguardo generado:
+    <a href="{{ url_for('ver_pdf', codigo=request.args.get('pdf')) }}" target="_blank">
+        Descargar PDF {{ request.args.get('pdf') }}
+    </a>
+</div>
+{% endif %}
+
 <form method="POST" action="{{ url_for('nueva_entrada') }}" class="form-nueva-entrada">
 
     <h2>Datos del cliente</h2>
@@ -64,7 +73,14 @@
 {% block scripts %}
 {% if request.args.get('pdf') %}
 <script>
-    window.open("{{ url_for('ver_pdf', codigo=request.args.get('pdf')) }}", "_blank");
+    // Intentar abrir automáticamente; si el navegador lo bloquea, el banner ya está visible
+    var pdfUrl = "{{ url_for('ver_pdf', codigo=request.args.get('pdf')) }}";
+    var w = window.open(pdfUrl, "_blank");
+    if (!w || w.closed) {
+        // Popup bloqueado: resaltar el banner para que el usuario haga clic
+        var banner = document.getElementById('pdf-banner');
+        if (banner) banner.style.border = '2px solid var(--color-text)';
+    }
 </script>
 {% endif %}
 {% endblock %}
