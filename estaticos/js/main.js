@@ -3,10 +3,6 @@
 const themeToggle = document.getElementById('theme-toggle');
 const html = document.documentElement;
 
-// Cargar tema guardado
-const savedTheme = localStorage.getItem('theme') || 'light';
-html.setAttribute('data-theme', savedTheme);
-
 if (themeToggle) {
     themeToggle.addEventListener('click', () => {
         const current = html.getAttribute('data-theme');
