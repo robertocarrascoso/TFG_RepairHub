@@ -1,6 +1,47 @@
 {% extends "base.html" %}
 {% block title %}Reparaciones — RepairHub{% endblock %}
+
 {% block content %}
 <h1>Reparaciones</h1>
-<p>Lista de reparaciones (próximamente)</p>
+
+<div class="filtros">
+    {% set estados = ['todos', 'Recibido', 'Diagnosticado', 'Presupuesto enviado', 'Presupuesto aceptado', 'Reparando', 'Esperando pieza', 'Listo', 'Entregado'] %}
+    {% for est in estados %}
+        <a href="{{ url_for('reparaciones', estado=est) }}"
+           class="btn {% if filtro_actual == est %}btn-primary{% else %}btn-secondary{% endif %}">
+            {{ est|capitalize }}
+        </a>
+    {% endfor %}
+</div>
+
+<div class="table-responsive">
+    <table>
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Cliente</th>
+                <th>Dispositivo</th>
+                <th>Avería</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rep in reparaciones %}
+            <tr>
+                <td><a href="/reparacion/{{ rep.codigo }}">{{ rep.codigo }}</a></td>
+                <td>{{ rep.cliente_nombre }}</td>
+                <td>{{ rep.tipo_dispositivo }} {{ rep.marca }}</td>
+                <td>{{ rep.averia[:40] }}{% if rep.averia|length > 40 %}...{% endif %}</td>
+                <td><span class="badge badge-{{ rep.estado|lower|replace(' ', '-') }}">{{ rep.estado }}</span></td>
+                <td>{{ rep.created_at.strftime('%d/%m/%Y') }}</td>
+            </tr>
+            {% endfor %}
+
+            {% if reparaciones|length == 0 %}
+            <tr><td colspan="6" style="text-align:center; color: var(--text-muted);">No hay reparaciones</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}
