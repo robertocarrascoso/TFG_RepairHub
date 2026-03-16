@@ -316,6 +316,61 @@ def detalle_reparacion(codigo):
     return render_template('reparacion.html', rep=rep, historial=historial, estados_posibles=estados_posibles)
 
 
+@app.route('/reparacion/<codigo>/cambiar-estado', methods=['POST'])
+def cambiar_estado(codigo):
+    nuevo_estado = request.form.get('nuevo_estado')
+
+    if PREVIEW_MODE:
+        rep = next((r for r in mock_reparaciones if r['codigo'] == codigo), None)
+        if rep and nuevo_estado in FLUJO_ESTADOS.get(rep['estado'], []):
+            rep['estado'] = nuevo_estado
+            rep['updated_at'] = datetime.now()
+
+            # Si se rechaza presupuesto
+            if nuevo_estado == 'Entregado' and rep.get('presupuesto') and not rep.get('presupuesto_aceptado'):
+                rep['presupuesto_aceptado'] = False
+
+            # Si se acepta presupuesto
+            if nuevo_estado == 'Presupuesto aceptado':
+                rep['presupuesto_aceptado'] = True
+
+            mock_historial.append({
+                'id': len(mock_historial) + 1,
+                'reparacion_id': rep['id'],
+                'estado': nuevo_estado,
+                'tecnico': 'Técnico',
+                'fecha': datetime.now()
+            })
+            flash(f'Estado cambiado a "{nuevo_estado}".', 'success')
+        else:
+            flash('Cambio de estado no válido.', 'error')
+        return redirect(url_for('detalle_reparacion', codigo=codigo))
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM reparaciones WHERE codigo = %s", (codigo,))
+    rep = cursor.fetchone()
+
+    if rep and nuevo_estado in FLUJO_ESTADOS.get(rep['estado'], []):
+        cursor.execute("UPDATE reparaciones SET estado = %s WHERE codigo = %s", (nuevo_estado, codigo))
+
+        if nuevo_estado == 'Presupuesto aceptado':
+            cursor.execute("UPDATE reparaciones SET presupuesto_aceptado = TRUE WHERE codigo = %s", (codigo,))
+        elif nuevo_estado == 'Entregado' and rep.get('presupuesto') and not rep.get('presupuesto_aceptado'):
+            cursor.execute("UPDATE reparaciones SET presupuesto_aceptado = FALSE WHERE codigo = %s", (codigo,))
+
+        cursor.execute("INSERT INTO historial_estados (reparacion_id, estado, tecnico) VALUES (%s, %s, 'Técnico')", (rep['id'], nuevo_estado))
+        db.commit()
+        flash(f'Estado cambiado a "{nuevo_estado}".', 'success')
+    else:
+        flash('Cambio de estado no válido.', 'error')
+
+    cursor.close()
+    db.close()
+    return redirect(url_for('detalle_reparacion', codigo=codigo))
+
+
 @app.route('/clientes')
 def clientes():
     return render_template('clientes.html')
