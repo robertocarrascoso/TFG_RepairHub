@@ -1,9 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — RepairHub{% endblock %}
 
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
 {% block content %}
 <h1>Dashboard</h1>
 
+<!-- Tarjetas resumen (ya están) -->
 <div class="cards-grid">
     <div class="card">
         <span class="card-number">{{ pendientes }}</span>
@@ -23,18 +28,24 @@
     </div>
 </div>
 
+<!-- Gráficos -->
+<div class="charts-grid">
+    <div class="card">
+        <h3>Reparaciones por estado</h3>
+        <canvas id="chartEstados"></canvas>
+    </div>
+    <div class="card">
+        <h3>Por tipo de dispositivo</h3>
+        <canvas id="chartTipos"></canvas>
+    </div>
+</div>
+
+<!-- Últimas reparaciones -->
 <h2>Últimas reparaciones</h2>
 <div class="table-responsive">
     <table>
         <thead>
-            <tr>
-                <th>Código</th>
-                <th>Cliente</th>
-                <th>Dispositivo</th>
-                <th>Avería</th>
-                <th>Estado</th>
-                <th>Fecha</th>
-            </tr>
+            <tr><th>Código</th><th>Cliente</th><th>Dispositivo</th><th>Avería</th><th>Estado</th><th>Fecha</th></tr>
         </thead>
         <tbody>
             {% for rep in ultimas %}
@@ -50,4 +61,55 @@
         </tbody>
     </table>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const paleta = ['#000000', '#333333', '#555555', '#888888', '#AAAAAA', '#CCCCCC', '#E5E5E5'];
+
+// --- Reparaciones por estado (barras horizontales) ---
+const datosEstados = {{ reparaciones | tojson }};
+
+// Contar por estado
+const conteoEstados = {};
+datosEstados.forEach(r => {
+    conteoEstados[r.estado] = (conteoEstados[r.estado] || 0) + 1;
+});
+
+new Chart(document.getElementById('chartEstados'), {
+    type: 'bar',
+    data: {
+        labels: Object.keys(conteoEstados),
+        datasets: [{
+            data: Object.values(conteoEstados),
+            backgroundColor: paleta.slice(0, Object.keys(conteoEstados).length)
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+    }
+});
+
+// --- Por tipo de dispositivo (circular) ---
+const conteoTipos = {};
+datosEstados.forEach(r => {
+    conteoTipos[r.tipo_dispositivo] = (conteoTipos[r.tipo_dispositivo] || 0) + 1;
+});
+
+new Chart(document.getElementById('chartTipos'), {
+    type: 'doughnut',
+    data: {
+        labels: Object.keys(conteoTipos),
+        datasets: [{
+            data: Object.values(conteoTipos),
+            backgroundColor: paleta.slice(0, Object.keys(conteoTipos).length)
+        }]
+    },
+    options: {
+        plugins: { legend: { position: 'bottom' } }
+    }
+});
+</script>
 {% endblock %}
