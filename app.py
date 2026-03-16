@@ -186,10 +186,11 @@ def nueva_entrada():
         else:
             cliente_id = cliente['id']
 
-        # Generar código único
+        # Generar código único con contador atómico
         year = datetime.now().year
-        cursor.execute("SELECT COUNT(*) as total FROM reparaciones WHERE YEAR(created_at) = %s", (year,))
-        num = cursor.fetchone()['total'] + 1
+        cursor.execute("INSERT INTO contadores (year, ultimo_num) VALUES (%s, 1) ON DUPLICATE KEY UPDATE ultimo_num = ultimo_num + 1", (year,))
+        cursor.execute("SELECT ultimo_num FROM contadores WHERE year = %s", (year,))
+        num = cursor.fetchone()['ultimo_num']
         codigo = f"REP-{year}-{num:05d}"
 
         # Insertar reparación
@@ -399,12 +400,14 @@ def ver_pdf(codigo):
             'fecha': row['created_at']
         }
 
-    # Generar PDF
+    # Servir PDF existente o generar uno nuevo
     pdf_dir = os.path.join(app.root_path, 'pdfs')
     os.makedirs(pdf_dir, exist_ok=True)
     pdf_path = os.path.join(pdf_dir, f'{codigo}.pdf')
 
-    generar_pdf(datos, pdf_path)
+    if not os.path.exists(pdf_path):
+        generar_pdf(datos, pdf_path)
+
     return send_file(pdf_path, as_attachment=False, download_name=f'{codigo}.pdf')
 
 

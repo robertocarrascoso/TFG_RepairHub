@@ -32,6 +32,12 @@ CREATE TABLE reparaciones (
     FOREIGN KEY (cliente_id) REFERENCES clientes(id)
 );
 
+-- Contador de reparaciones por año (nunca retrocede)
+CREATE TABLE contadores (
+    year INT PRIMARY KEY,
+    ultimo_num INT NOT NULL DEFAULT 0
+);
+
 -- Tabla del historial de estados
 CREATE TABLE historial_estados (
     id INT AUTO_INCREMENT PRIMARY KEY,
