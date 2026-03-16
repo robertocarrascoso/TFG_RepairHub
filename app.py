@@ -85,12 +85,22 @@ def dashboard():
     ingresos_mes = cursor.fetchone()['total']
 
     cursor.execute("""
+        SELECT AVG(DATEDIFF(updated_at, created_at)) as media
+        FROM reparaciones WHERE estado = 'Entregado'
+    """)
+    row_media = cursor.fetchone()
+    tiempo_medio = round(row_media['media'], 1) if row_media['media'] else 0
+
+    cursor.execute("""
         SELECT r.*, c.nombre as cliente_nombre
         FROM reparaciones r
         JOIN clientes c ON r.cliente_id = c.id
         ORDER BY r.created_at DESC LIMIT 5
     """)
     ultimas = cursor.fetchall()
+
+    cursor.execute("SELECT estado, tipo_dispositivo FROM reparaciones")
+    reparaciones = cursor.fetchall()
 
     cursor.close()
     db.close()
@@ -99,9 +109,9 @@ def dashboard():
         pendientes=pendientes,
         este_mes=este_mes,
         ingresos_mes=ingresos_mes,
-        tiempo_medio=0,
+        tiempo_medio=tiempo_medio,
         ultimas=ultimas,
-        reparaciones=[]
+        reparaciones=reparaciones
     )
 
 
