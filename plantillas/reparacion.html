@@ -53,7 +53,7 @@
 <div class="acciones-estado">
     <h3>Cambiar estado</h3>
     {% for estado in estados_posibles %}
-        <form method="POST" action="/reparacion/{{ rep.codigo }}/cambiar-estado" style="display:inline;">
+        <form method="POST" action="/reparacion/{{ rep.codigo }}/cambiar-estado">
             <input type="hidden" name="nuevo_estado" value="{{ estado }}">
             <button type="submit" class="btn btn-secondary">{{ estado }}</button>
         </form>
