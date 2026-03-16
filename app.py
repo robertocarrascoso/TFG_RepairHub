@@ -430,7 +430,26 @@ def precio_final(codigo):
 
 @app.route('/clientes')
 def clientes():
-    return render_template('clientes.html')
+    if PREVIEW_MODE:
+        lista = []
+        for c in mock_clientes:
+            n_reps = len([r for r in mock_reparaciones if r['cliente_id'] == c['id']])
+            lista.append({**c, 'n_reparaciones': n_reps})
+        return render_template('clientes.html', clientes=lista)
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT c.*, COUNT(r.id) as n_reparaciones
+        FROM clientes c
+        LEFT JOIN reparaciones r ON c.id = r.cliente_id
+        GROUP BY c.id
+        ORDER BY c.nombre
+    """)
+    lista = cursor.fetchall()
+    cursor.close()
+    db.close()
+    return render_template('clientes.html', clientes=lista)
 
 @app.route('/buscar')
 def buscar():
