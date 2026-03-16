@@ -186,7 +186,6 @@ def nueva_entrada():
                 'fecha': datetime.now()
             })
 
-            flash(f'Reparación {codigo} creada correctamente.', 'success')
             return redirect(url_for('nueva_entrada', pdf=codigo))
 
         # --- Con base de datos real ---
@@ -224,7 +223,6 @@ def nueva_entrada():
         cursor.close()
         db.close()
 
-        flash(f'Reparación {codigo} creada correctamente.', 'success')
         return redirect(url_for('nueva_entrada', pdf=codigo))
 
     return render_template('nueva_entrada.html')
