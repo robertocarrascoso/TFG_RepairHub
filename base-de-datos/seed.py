@@ -6,6 +6,7 @@ Solo necesario cuando se conecte a MariaDB real (en el servidor).
 import mysql.connector
 import random
 from datetime import datetime, timedelta
+from werkzeug.security import generate_password_hash
 
 conn = mysql.connector.connect(
     host="localhost",
@@ -19,9 +20,22 @@ cursor = conn.cursor()
 cursor.execute("DELETE FROM historial_estados")
 cursor.execute("DELETE FROM reparaciones")
 cursor.execute("DELETE FROM clientes")
+cursor.execute("DELETE FROM usuarios")
 cursor.execute("ALTER TABLE clientes AUTO_INCREMENT = 1")
 cursor.execute("ALTER TABLE reparaciones AUTO_INCREMENT = 1")
 cursor.execute("ALTER TABLE historial_estados AUTO_INCREMENT = 1")
+cursor.execute("ALTER TABLE usuarios AUTO_INCREMENT = 1")
+
+# Usuario administrador por defecto
+cursor.execute(
+    "INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES (%s, %s, %s, %s)",
+    ('Administrador', 'admin@repairhub.com', generate_password_hash('admin123'), 'admin')
+)
+cursor.execute(
+    "INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES (%s, %s, %s, %s)",
+    ('Roberto', 'roberto@repairhub.com', generate_password_hash('tecnico123'), 'tecnico')
+)
+conn.commit()
 
 # Clientes
 clientes = [
@@ -95,4 +109,4 @@ for i in range(1, 26):
 conn.commit()
 cursor.close()
 conn.close()
-print(f"Seed completado: {len(clientes)} clientes, 25 reparaciones.")
+print(f"Seed completado: 2 usuarios, {len(clientes)} clientes, 25 reparaciones.")

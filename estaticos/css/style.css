@@ -794,3 +794,87 @@ h1 + .badge {
         font-size: 1.5rem;
     }
 }
+
+/* ========================================
+   PÁGINA DE LOGIN
+   ======================================== */
+
+.login-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-secondary);
+    padding: 1.5rem;
+}
+
+.login-card {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: var(--card-shadow);
+    animation: fadeIn 0.35s ease-out;
+}
+
+.login-logo {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.login-logo .logo-img {
+    height: 32px;
+}
+
+.login-card h1 {
+    text-align: center;
+    font-size: 1.35rem;
+    margin-bottom: 1.5rem;
+}
+
+.login-card .form-group {
+    margin-bottom: 1rem;
+}
+
+.login-card .btn-lg {
+    margin-top: 0.5rem;
+}
+
+.login-theme-toggle {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+}
+
+/* ========================================
+   NAVBAR — INFO DE USUARIO
+   ======================================== */
+
+.nav-user {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-left: 1rem;
+}
+
+.nav-user-name {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.btn-sm {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.75rem;
+    border-radius: 6px;
+}
+
+@media (max-width: 768px) {
+    .nav-user {
+        margin-left: 0;
+        margin-top: 0.5rem;
+        justify-content: center;
+    }
+}

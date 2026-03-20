@@ -4,6 +4,16 @@ CREATE DATABASE IF NOT EXISTS repairhub
 
 USE repairhub;
 
+-- Tabla de usuarios (login)
+CREATE TABLE usuarios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(256) NOT NULL,
+    rol ENUM('admin', 'tecnico') NOT NULL DEFAULT 'tecnico',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Tabla de los clientes
 CREATE TABLE clientes (
     id INT AUTO_INCREMENT PRIMARY KEY,

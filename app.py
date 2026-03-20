@@ -1,4 +1,6 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 from config import DB_CONFIG, SECRET_KEY
 from utilidades.pdf_generator import generar_pdf
 from datetime import datetime
@@ -12,6 +14,18 @@ app.secret_key = SECRET_KEY
 # Modo preview: datos hardcodeados (fake) para desarrollar sin base de datos
 # Cambiaresmos a False cuando se conecte a la MariaDB real:
 PREVIEW_MODE = True
+
+
+# --- Sistema de autenticación ---
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Inicia sesión para continuar.', 'error')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated
 
 # Datos hardcodeados (fake)
 if PREVIEW_MODE:
@@ -27,6 +41,11 @@ if PREVIEW_MODE:
         {'id': 3, 'codigo': 'REP-2026-00003', 'cliente_id': 3, 'tipo_dispositivo': 'Móvil', 'marca': 'iPhone', 'modelo': '14 Pro', 'averia': 'Batería se agota rápido', 'observaciones': '', 'estado': 'Presupuesto enviado', 'presupuesto': 65.00, 'precio_final': None, 'presupuesto_aceptado': None, 'created_at': datetime(2026, 2, 15), 'updated_at': datetime(2026, 2, 18)},
         {'id': 4, 'codigo': 'REP-2026-00004', 'cliente_id': 1, 'tipo_dispositivo': 'Tablet', 'marca': 'iPad', 'modelo': 'Air 5', 'averia': 'Puerto de carga no funciona', 'observaciones': '', 'estado': 'Recibido', 'presupuesto': None, 'precio_final': None, 'presupuesto_aceptado': None, 'created_at': datetime(2026, 3, 1), 'updated_at': datetime(2026, 3, 1)},
         {'id': 5, 'codigo': 'REP-2026-00005', 'cliente_id': 2, 'tipo_dispositivo': 'Consola', 'marca': 'Sony', 'modelo': 'PS5', 'averia': 'No lee discos', 'observaciones': '', 'estado': 'Diagnosticado', 'presupuesto': None, 'precio_final': None, 'presupuesto_aceptado': None, 'created_at': datetime(2026, 3, 2), 'updated_at': datetime(2026, 3, 3)},
+    ]
+
+    mock_usuarios = [
+        {'id': 1, 'nombre': 'Administrador', 'email': 'admin@repairhub.com', 'password_hash': generate_password_hash('admin123'), 'rol': 'admin', 'created_at': datetime(2026, 1, 1)},
+        {'id': 2, 'nombre': 'Roberto', 'email': 'roberto@repairhub.com', 'password_hash': generate_password_hash('tecnico123'), 'rol': 'tecnico', 'created_at': datetime(2026, 1, 1)},
     ]
 
     mock_historial = [
@@ -48,8 +67,57 @@ def get_db():
     return mysql.connector.connect(**DB_CONFIG)
 
 
-# Rutas
+# --- Rutas de autenticación ---
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+
+        if PREVIEW_MODE:
+            user = next((u for u in mock_usuarios if u['email'] == email), None)
+            if user and check_password_hash(user['password_hash'], password):
+                session['user_id'] = user['id']
+                session['user_nombre'] = user['nombre']
+                session['user_rol'] = user['rol']
+                return redirect(url_for('dashboard'))
+            flash('Email o contraseña incorrectos.', 'error')
+            return redirect(url_for('login'))
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
+        user = cursor.fetchone()
+        cursor.close()
+        db.close()
+
+        if user and check_password_hash(user['password_hash'], password):
+            session['user_id'] = user['id']
+            session['user_nombre'] = user['nombre']
+            session['user_rol'] = user['rol']
+            return redirect(url_for('dashboard'))
+
+        flash('Email o contraseña incorrectos.', 'error')
+        return redirect(url_for('login'))
+
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Sesión cerrada.', 'success')
+    return redirect(url_for('login'))
+
+
+# --- Rutas de la aplicación ---
+
 @app.route('/')
+@login_required
 def dashboard():
     if PREVIEW_MODE:
         pendientes = len([r for r in mock_reparaciones if r['estado'] != 'Entregado'])
@@ -116,6 +184,7 @@ def dashboard():
 
 
 @app.route('/nueva-entrada', methods=['GET', 'POST'])
+@login_required
 def nueva_entrada():
     if request.method == 'POST':
         # Recoger datos del formulario
@@ -228,6 +297,7 @@ def nueva_entrada():
     return render_template('nueva_entrada.html')
 
 @app.route('/reparaciones')
+@login_required
 def reparaciones():
     filtro = request.args.get('estado', 'todos')
 
@@ -280,6 +350,7 @@ FLUJO_ESTADOS = {
 }
 
 @app.route('/reparacion/<codigo>')
+@login_required
 def detalle_reparacion(codigo):
     if PREVIEW_MODE:
         rep = next((r for r in mock_reparaciones if r['codigo'] == codigo), None)
@@ -333,6 +404,7 @@ def detalle_reparacion(codigo):
 
 
 @app.route('/reparacion/<codigo>/cambiar-estado', methods=['POST'])
+@login_required
 def cambiar_estado(codigo):
     nuevo_estado = request.form.get('nuevo_estado')
 
@@ -388,6 +460,7 @@ def cambiar_estado(codigo):
 
 
 @app.route('/reparacion/<codigo>/presupuesto', methods=['POST'])
+@login_required
 def enviar_presupuesto(codigo):
     presupuesto = request.form.get('presupuesto', type=float)
 
@@ -424,6 +497,7 @@ def enviar_presupuesto(codigo):
 
 
 @app.route('/reparacion/<codigo>/precio-final', methods=['POST'])
+@login_required
 def precio_final(codigo):
     precio = request.form.get('precio_final', type=float)
 
@@ -445,6 +519,7 @@ def precio_final(codigo):
 
 
 @app.route('/clientes')
+@login_required
 def clientes():
     if PREVIEW_MODE:
         lista = []
@@ -468,6 +543,7 @@ def clientes():
     return render_template('clientes.html', clientes=lista)
 
 @app.route('/cliente/<int:id>')
+@login_required
 def detalle_cliente(id):
     if PREVIEW_MODE:
         cliente = next((c for c in mock_clientes if c['id'] == id), None)
@@ -506,11 +582,13 @@ def detalle_cliente(id):
 
 
 @app.route('/buscar')
+@login_required
 def buscar():
     return render_template('buscar.html')
 
 
 @app.route('/api/buscar')
+@login_required
 def api_buscar():
     q = request.args.get('q', '').strip()
     if not q or len(q) < 2:
@@ -558,6 +636,7 @@ def api_buscar():
 
 
 @app.route('/api/buscar-cliente')
+@login_required
 def api_buscar_cliente():
     q = request.args.get('q', '').strip()
     if not q or len(q) < 2:
@@ -581,6 +660,7 @@ def api_buscar_cliente():
 
 
 @app.route('/pdf/<codigo>')
+@login_required
 def ver_pdf(codigo):
     if PREVIEW_MODE:
         rep = next((r for r in mock_reparaciones if r['codigo'] == codigo), None)
