@@ -28,6 +28,9 @@
                 <li><a href="{{ url_for('reparaciones') }}" {% if request.endpoint == 'reparaciones' %}class="active"{% endif %}>Reparaciones</a></li>
                 <li><a href="{{ url_for('clientes') }}" {% if request.endpoint == 'clientes' %}class="active"{% endif %}>Clientes</a></li>
                 <li><a href="{{ url_for('buscar') }}" {% if request.endpoint == 'buscar' %}class="active"{% endif %}>Buscar</a></li>
+                {% if session.get('user_rol') == 'admin' %}
+                <li><a href="{{ url_for('admin_panel') }}" {% if request.endpoint == 'admin_panel' %}class="active"{% endif %}>Admin</a></li>
+                {% endif %}
             </ul>
 
             <div class="nav-user">

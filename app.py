@@ -27,6 +27,19 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated
 
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Inicia sesión para continuar.', 'error')
+            return redirect(url_for('login'))
+        if session.get('user_rol') != 'admin':
+            flash('Acceso restringido a administradores.', 'error')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated
+
 # Datos hardcodeados (fake)
 if PREVIEW_MODE:
     mock_clientes = [
@@ -720,6 +733,114 @@ def ver_pdf(codigo):
     generar_pdf(datos, pdf_path)
 
     return send_file(pdf_path, as_attachment=False, download_name=f'{codigo}.pdf')
+
+
+# --- Panel de administración ---
+
+@app.route('/admin')
+@admin_required
+def admin_panel():
+    if PREVIEW_MODE:
+        usuarios = mock_usuarios
+        return render_template('admin.html', usuarios=usuarios)
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT id, nombre, email, rol, created_at FROM usuarios ORDER BY id")
+    usuarios = cursor.fetchall()
+    cursor.close()
+    db.close()
+    return render_template('admin.html', usuarios=usuarios)
+
+
+@app.route('/admin/crear-usuario', methods=['POST'])
+@admin_required
+def crear_usuario():
+    nombre = request.form.get('nombre', '').strip()
+    email = request.form.get('email', '').strip()
+    password = request.form.get('password', '').strip()
+    rol = request.form.get('rol', 'tecnico')
+
+    if not nombre or not email or not password:
+        flash('Todos los campos son obligatorios.', 'error')
+        return redirect(url_for('admin_panel'))
+
+    if rol not in ('admin', 'tecnico'):
+        rol = 'tecnico'
+
+    if PREVIEW_MODE:
+        # Comprobar email duplicado
+        if any(u['email'] == email for u in mock_usuarios):
+            flash('Ya existe un usuario con ese email.', 'error')
+            return redirect(url_for('admin_panel'))
+
+        nuevo_id = max(u['id'] for u in mock_usuarios) + 1
+        mock_usuarios.append({
+            'id': nuevo_id,
+            'nombre': nombre,
+            'email': email,
+            'password_hash': generate_password_hash(password),
+            'rol': rol,
+            'created_at': datetime.now()
+        })
+        flash(f'Usuario "{nombre}" creado correctamente.', 'success')
+        return redirect(url_for('admin_panel'))
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
+    if cursor.fetchone():
+        cursor.close()
+        db.close()
+        flash('Ya existe un usuario con ese email.', 'error')
+        return redirect(url_for('admin_panel'))
+
+    cursor.execute(
+        "INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES (%s, %s, %s, %s)",
+        (nombre, email, generate_password_hash(password), rol)
+    )
+    db.commit()
+    cursor.close()
+    db.close()
+    flash(f'Usuario "{nombre}" creado correctamente.', 'success')
+    return redirect(url_for('admin_panel'))
+
+
+@app.route('/admin/eliminar-usuario/<int:id>', methods=['POST'])
+@admin_required
+def eliminar_usuario(id):
+    # No permitir eliminarse a sí mismo
+    if id == session.get('user_id'):
+        flash('No puedes eliminar tu propio usuario.', 'error')
+        return redirect(url_for('admin_panel'))
+
+    if PREVIEW_MODE:
+        usuario = next((u for u in mock_usuarios if u['id'] == id), None)
+        if not usuario:
+            flash('Usuario no encontrado.', 'error')
+            return redirect(url_for('admin_panel'))
+        mock_usuarios.remove(usuario)
+        flash(f'Usuario "{usuario["nombre"]}" eliminado.', 'success')
+        return redirect(url_for('admin_panel'))
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT id, nombre FROM usuarios WHERE id = %s", (id,))
+    usuario = cursor.fetchone()
+
+    if not usuario:
+        cursor.close()
+        db.close()
+        flash('Usuario no encontrado.', 'error')
+        return redirect(url_for('admin_panel'))
+
+    cursor.execute("DELETE FROM usuarios WHERE id = %s", (id,))
+    db.commit()
+    cursor.close()
+    db.close()
+    flash(f'Usuario "{usuario["nombre"]}" eliminado.', 'success')
+    return redirect(url_for('admin_panel'))
 
 
 if __name__ == '__main__':

@@ -878,3 +878,57 @@ h1 + .badge {
         justify-content: center;
     }
 }
+
+/* ========================================
+   PANEL DE ADMINISTRACIÓN
+   ======================================== */
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.admin-grid .card {
+    padding: 1.5rem;
+}
+
+.admin-grid .card h3 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.form-inline {
+    display: inline;
+}
+
+.btn-danger-text {
+    color: #c00;
+}
+
+.btn-danger-text:hover {
+    background-color: #c00;
+    color: #fff;
+    border-color: #c00;
+}
+
+.badge-rol-admin {
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
+}
+
+.badge-rol-tecnico {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+@media (max-width: 768px) {
+    .admin-grid {
+        grid-template-columns: 1fr;
+    }
+}
